@@ -65,42 +65,52 @@ html,body,[data-testid="stAppViewContainer"]{
 [data-testid="stSidebar"] > div:first-child{padding:0 !important;}
 [data-testid="collapsedControl"]{display:none !important;}
 
-/* Hide the auto-generated radio label */
-[data-testid="stSidebar"] .stRadio > label{
-  display:none !important;
+/* ── NAV BUTTONS ── */
+.nav-btn {
+  display:block;width:100%;padding:10px 14px;margin:2px 0;
+  background:transparent;border:1px solid transparent;border-radius:10px;
+  cursor:pointer;text-align:left;
+  font-family:'Outfit',sans-serif;font-size:.87rem;font-weight:600;
+  color:#4a6080;transition:all .15s;
 }
-/* Radio option wrapper */
-[data-testid="stSidebar"] .stRadio > div{
-  display:flex !important; flex-direction:column !important;
-  gap:3px !important; padding:0 10px !important;
+.nav-btn:hover{background:rgba(255,255,255,.04);color:#9bb5d0;}
+.nav-btn.active{
+  background:linear-gradient(135deg,rgba(79,70,229,.3),rgba(99,102,241,.12));
+  border:1px solid rgba(99,102,241,.4);color:#e2e8f0;
 }
-/* Each nav option */
-[data-testid="stSidebar"] .stRadio > div > label{
-  display:flex !important; align-items:center !important;
-  padding:10px 14px !important; border-radius:10px !important;
-  cursor:pointer !important; transition:all .15s !important;
-  border:1px solid transparent !important; margin:0 !important;
+
+/* Override Streamlit button styles for nav */
+[data-testid="stSidebar"] .stButton > button {
+  display:block !important;
+  width:100% !important;
+  padding:10px 14px !important;
+  margin:2px 0 !important;
+  background:transparent !important;
+  border:1px solid transparent !important;
+  border-radius:10px !important;
+  cursor:pointer !important;
+  text-align:left !important;
   font-family:'Outfit',sans-serif !important;
-  font-size:.87rem !important; font-weight:600 !important;
+  font-size:.87rem !important;
+  font-weight:600 !important;
   color:#4a6080 !important;
+  transition:all .15s !important;
+  box-shadow:none !important;
+  transform:none !important;
 }
-[data-testid="stSidebar"] .stRadio > div > label:hover{
+[data-testid="stSidebar"] .stButton > button:hover {
   background:rgba(255,255,255,.04) !important;
   color:#9bb5d0 !important;
+  transform:none !important;
+  box-shadow:none !important;
 }
-[data-testid="stSidebar"] .stRadio > div > label[data-checked="true"]{
+[data-testid="stSidebar"] .nav-active > button,
+[data-testid="stSidebar"] .nav-active > button:hover {
   background:linear-gradient(135deg,rgba(79,70,229,.3),rgba(99,102,241,.12)) !important;
   border:1px solid rgba(99,102,241,.4) !important;
   color:#e2e8f0 !important;
-}
-/* Hide radio dot */
-[data-testid="stSidebar"] .stRadio > div > label > div:first-child{
-  display:none !important;
-}
-[data-testid="stSidebar"] .stRadio > div > label > div > p{
-  font-size:.87rem !important; font-weight:600 !important;
-  color:inherit !important; margin:0 !important;
-  font-family:'Outfit',sans-serif !important;
+  transform:none !important;
+  box-shadow:none !important;
 }
 
 /* ── KPI cards ── */
@@ -179,14 +189,17 @@ html,body,[data-testid="stAppViewContainer"]{
 .dot{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:blink 2s infinite;}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* ── Buttons ── */
-.stButton>button{
+/* ── Main content Buttons ── */
+[data-testid="stMainBlockContainer"] .stButton>button{
   background:linear-gradient(135deg,#4f46e5,#7c3aed)!important;
   color:#fff!important;border:none!important;border-radius:8px!important;
   font-family:'Outfit',sans-serif!important;font-weight:700!important;
   transition:all .2s!important;
 }
-.stButton>button:hover{transform:translateY(-2px)!important;box-shadow:0 8px 24px rgba(99,102,241,.35)!important;}
+[data-testid="stMainBlockContainer"] .stButton>button:hover{
+  transform:translateY(-2px)!important;
+  box-shadow:0 8px 24px rgba(99,102,241,.35)!important;
+}
 
 /* ── Form inputs ── */
 .stTextArea textarea,.stTextInput>div>div>input{
@@ -363,7 +376,6 @@ def _boot_train():
     feat=[c for c in d.columns if c not in ["label","difficulty_level","is_attack"]]
     X=d[feat].fillna(0); y=d["is_attack"]
     sc=StandardScaler(); Xs=sc.fit_transform(X)
-    # Deliberately weaker params → realistic 78-84% accuracy
     Xtr,Xte,ytr,yte=train_test_split(Xs,y,test_size=0.30,random_state=13,stratify=y)
     rf=RandomForestClassifier(n_estimators=45,max_depth=10,min_samples_leaf=6,
                               max_features="sqrt",random_state=99,n_jobs=-1)
@@ -382,7 +394,7 @@ RF,ISO,SC,LES,FEAT,ACC,F1,PREC,REC,CM,DF,SRC = _boot_train()
 # ══════════════════════════════════════════════════════════════════════════════
 # SESSION STATE
 # ══════════════════════════════════════════════════════════════════════════════
-for k,v in [("reports",[]),("_capture",[]),("_cmp",None),("_brief","")]:
+for k,v in [("reports",[]),("_capture",[]),("_cmp",None),("_brief",""),("page","📊  Dataset & Model")]:
     if k not in st.session_state: st.session_state[k]=v
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -472,7 +484,17 @@ def llm_soc(client,reports):
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ══════════════  SIDEBAR NAV  ════════════════════════════════════════════════
+# Nav uses session_state + st.button() — fully reliable across Streamlit versions
 # ══════════════════════════════════════════════════════════════════════════════
+NAV_PAGES = [
+    "📊  Dataset & Model",
+    "📡  Live Capture",
+    "🤖  LLM Threat Reports",
+    "📈  IDS Comparison",
+    "🧠  RAG Knowledge Base",
+    "📋  NLP SOC Summary",
+]
+
 with st.sidebar:
     st.markdown("""
     <div style="padding:22px 18px 14px;border-bottom:1px solid #152035;margin-bottom:16px;">
@@ -489,18 +511,17 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    page = st.radio(
-        label="nav", label_visibility="collapsed",
-        options=[
-            "📊  Dataset & Model",
-            "📡  Live Capture",
-            "🤖  LLM Threat Reports",
-            "📈  IDS Comparison",
-            "🧠  RAG Knowledge Base",
-            "📋  NLP SOC Summary",
-        ],
-        key="nav",
-    )
+    # Button-based nav — wraps each button in a div with class "nav-active" when selected
+    for nav_item in NAV_PAGES:
+        is_active = st.session_state.page == nav_item
+        # Inject a wrapper div to style the active button differently
+        if is_active:
+            st.markdown('<div class="nav-active">', unsafe_allow_html=True)
+        if st.button(nav_item, key=f"nav_{nav_item}", use_container_width=True):
+            st.session_state.page = nav_item
+            st.rerun()
+        if is_active:
+            st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("<hr style='border-color:#152035;margin:14px 0;'>", unsafe_allow_html=True)
 
@@ -517,6 +538,9 @@ with st.sidebar:
       </div>
     </div>
     """, unsafe_allow_html=True)
+
+# Read current page from session state
+page = st.session_state.page
 
 # ══════════════════════════════════════════════════════════════════════════════
 # HERO (always shown)
